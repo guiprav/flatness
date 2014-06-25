@@ -1,0 +1,195 @@
+<!doctype html>
+<meta charset="utf-8">
+<script src="lodash.js"></script>
+<style>
+	canvas
+	{
+		border: 1px solid grey;
+	}
+</style>
+<canvas></canvas>
+<script>
+	'use strict';
+	var canvas = window.canvas = document.getElementsByTagName('canvas')[0];
+	var ctx = window.canvas._context = canvas.getContext('2d');
+	function Painter(context, palette, pixels) {
+		if(!this) { return new Painter(context); }
+		this._context = context;
+		this._palette = palette || { '0': [0, 0, 0, 0], '1': [0, 127, 225, 255] };
+		this._pixels =
+			pixels
+			|| _(context.canvas.width * context.canvas.height).times(_.constant(0))
+			;
+		this._dirty_pixels = [];
+		this._dirty_pixels.all_dirty = true;
+		this.full_redraw_threshold = 2048;
+		this.main_color = 1;
+		this.secondary_color = 0;
+		this.active_tool = 'pencil';
+		_.each (
+			Painter.Tools, function(Tool) {
+				new Tool(this);
+			}
+			, this
+		);
+		this._defer_redraw();
+	}
+	Painter.prototype.get_palette_color = function(index) {
+		return this._palette[index];
+	};
+	Painter.prototype.set_palette_color = function(index, color) {
+		if(index >= this._palette.length) {
+			throw new Error("Can't set palette color: Index overflows palette array.");
+		}
+		this._palette[index] = color;
+		[].push.apply (
+			this._dirty_pixels
+			, _.chain(this._pixels)
+				.pairs()
+				.select (
+					function(pair) {
+						return pair[1] === index;
+					}
+				)
+				.map (
+					function(pair) {
+						return pair[0];
+					}
+				)
+				.value()
+		);
+		this._defer_redraw();
+	};
+	Painter.prototype.add_palette_color = function(color) {
+		var index = parseInt(_.chain(this._palette).keys().last().value()) + 1;
+		this._palette[index] = color;
+		return index;
+	};
+	Painter.prototype.get_pixel = function(x, y) {
+		return this._pixels[(canvas.width * y) + x];
+	};
+	Painter.prototype.set_pixel = function(x, y, data) {
+		var index = (canvas.width * y) + x;
+		this._pixels[index] = data;
+		this._dirty_pixels.push(index);
+		this._defer_redraw();
+	};
+	Painter.prototype.redraw = function() {
+		painter._pending_redraw = false;
+		if(this._dirty_pixels.all_dirty || this._dirty_pixels.length > this.full_redraw_threshold) {
+			this._redraw_everything();
+		}
+		else {
+			this._redraw_dirty_pixels();
+		}
+	};
+	Painter.prototype._defer_redraw = function() {
+		var painter = this;
+		if(!this._pending_redraw) {
+			_.defer (
+				function() {
+					painter.redraw();
+				}
+			);
+			this._pending_redraw = true;
+		}
+	};
+	Painter.prototype._redraw_everything = function() {
+		var context = this._context;
+		var canvas = context.canvas;
+		var image_data = context.createImageData(canvas.width, canvas.height);
+		var image_bytes = [];
+		this._pixels.forEach (
+			function(color_index, pixel_index) {
+				var color = this._palette[color_index];
+				var byte_offset = pixel_index * 4;
+				image_bytes[byte_offset] = color[0];
+				image_bytes[byte_offset + 1] = color[1];
+				image_bytes[byte_offset + 2] = color[2];
+				image_bytes[byte_offset + 3] = color[3];
+			}
+			, this
+		);
+		image_data.data.set(image_bytes);
+		context.putImageData(image_data, 0, 0);
+		this._dirty_pixels = [];
+	};
+	Painter.prototype._redraw_dirty_pixels = function() {
+		_.each (
+			this._dirty_pixels, function(index) {
+				var context = this._context;
+				var x = index % context.canvas.width;
+				var y = Math.floor(index / context.canvas.width);
+				var color = this._palette[this._pixels[index]];
+				var pixel_image_data = context.createImageData(1, 1);
+				pixel_image_data.data.set(color);
+				context.putImageData(pixel_image_data, x, y);
+			}
+			, this
+		);
+		this._dirty_pixels = [];
+	};
+	(function define_tools() {
+		function is_active(tool) {
+			return tool.painter.active_tool === tool.constructor.tool_name;
+		}
+		function setup_tool_listener(tool, listener_name, target, event_name) {
+			var listener = tool[listener_name];
+			target.addEventListener (
+				event_name, function() {
+					if(is_active(tool)) {
+						return listener.apply(tool, arguments);
+					}
+				}
+			);
+		}
+		function named_tool_constructor(name, constructor) {
+			constructor.tool_name = name;
+			return constructor;
+		}
+		function event_to_point_in_element(event, element) {
+			var element_bounds = element.getBoundingClientRect();
+			return {
+				x: event.clientX - element_bounds.left
+				, y: event.clientY - element_bounds.top
+			};
+		}
+		Painter.Tools = {};
+		Painter.Tools.Pencil = named_tool_constructor (
+			'pencil', function(painter) {
+				var canvas = painter._context.canvas;
+				this.painter = painter;
+				setup_tool_listener(this, 'on_context_menu', canvas, 'contextmenu');
+				setup_tool_listener(this, 'on_mouse_down', canvas, 'mousedown');
+				setup_tool_listener(this, 'on_mouse_move', canvas, 'mousemove');
+				setup_tool_listener(this, 'on_mouse_up', document, 'mouseup');
+			}
+		);
+		Painter.Tools.Pencil.prototype.on_context_menu = function(event) {
+			event.preventDefault();
+		};
+		Painter.Tools.Pencil.prototype.draw = function(point) {
+			var color = (this.mouse_button === 1)?
+				this.painter.main_color
+				: this.painter.secondary_color
+				;
+			this.painter.set_pixel(point.x, point.y, color);
+		};
+		Painter.Tools.Pencil.prototype.on_mouse_down = function(event) {
+			if([1, 2].indexOf(event.buttons) === -1) { return; }
+			this.mouse_button = event.buttons;
+			this.draw(event_to_point_in_element(event, this.painter._context.canvas));
+		};
+		Painter.Tools.Pencil.prototype.on_mouse_move = function(event) {
+			var mouse_point;
+			var color;
+			if(this.mouse_button) {
+				this.draw(event_to_point_in_element(event, this.painter._context.canvas));
+			}
+		};
+		Painter.Tools.Pencil.prototype.on_mouse_up = function() {
+			this.mouse_button = null;
+		};
+	})();
+	window.painter = new Painter(ctx);
+</script>
