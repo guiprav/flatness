@@ -5,6 +5,7 @@
 	canvas
 	{
 		border: 1px solid grey;
+		image-rendering: -moz-crisp-edges;
 	}
 </style>
 <canvas></canvas>
@@ -34,6 +35,13 @@
 		);
 		this._defer_redraw();
 	}
+	Painter.prototype.set_zoom = function(zoom) {
+		var context = this._context;
+		var canvas = context.canvas;
+		zoom = Math.floor(zoom);
+		canvas.style.width = (canvas.width * zoom) + 'px';
+		canvas.style.height = (canvas.height * zoom) + 'px';
+	};
 	Painter.prototype.get_palette_color = function(index) {
 		return this._palette[index];
 	};
@@ -147,11 +155,14 @@
 			constructor.tool_name = name;
 			return constructor;
 		}
-		function event_to_point_in_element(event, element) {
-			var element_bounds = element.getBoundingClientRect();
+		function event_to_point_in_canvas(event, canvas) {
+			var style = getComputedStyle(canvas);
+			var zoom_width_ratio = (parseInt(style.getPropertyValue('width'))) / canvas.width;
+			var zoom_height_ratio = (parseInt(style.getPropertyValue('height'))) / canvas.height;
+			var bounds = canvas.getBoundingClientRect();
 			return {
-				x: event.clientX - element_bounds.left
-				, y: event.clientY - element_bounds.top
+				x: Math.floor((event.clientX - bounds.left) / zoom_width_ratio)
+				, y: Math.floor((event.clientY - bounds.top) / zoom_height_ratio)
 			};
 		}
 		Painter.Tools = {};
@@ -178,13 +189,13 @@
 		Painter.Tools.Pencil.prototype.on_mouse_down = function(event) {
 			if([1, 2].indexOf(event.buttons) === -1) { return; }
 			this.mouse_button = event.buttons;
-			this.draw(event_to_point_in_element(event, this.painter._context.canvas));
+			this.draw(event_to_point_in_canvas(event, this.painter._context.canvas));
 		};
 		Painter.Tools.Pencil.prototype.on_mouse_move = function(event) {
 			var mouse_point;
 			var color;
 			if(this.mouse_button) {
-				this.draw(event_to_point_in_element(event, this.painter._context.canvas));
+				this.draw(event_to_point_in_canvas(event, this.painter._context.canvas));
 			}
 		};
 		Painter.Tools.Pencil.prototype.on_mouse_up = function() {
