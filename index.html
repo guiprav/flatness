@@ -9,6 +9,35 @@
 	}
 </style>
 <canvas></canvas>
+<p>
+	You can open up the browser console and play around with the painter API. Suggestions:
+</p>
+<ul style="font-family: monospace">
+	<li>
+		<a href="#" onclick="painter.set_zoom(4); return false;">
+			painter.set_zoom(4)</a>
+		// Only looks good on Firefox at this point.
+	</li>
+	<li>
+		<a href="#" onclick="painter.set_palette_color(1, [127, 0, 255, 255]); return false;">
+			painter.set_palette_color(1, [127, 0, 255, 255])</a>
+	</li>
+	<li>
+		<a href="#" onclick="painter.main_color = painter.add_palette_color([255, 0, 127,255]); return false;">
+			painter.main_color = painter.add_palette_color([255, 0, 127,255])</a>
+	</li>
+	<li>
+		<a href="#" onclick="painter.secondary_color = 1; return false;">
+			painter.secondary_color = 1</a>
+		// Right-click on canvas to use this color.
+	</li>
+</ul>
+<p>
+	Etc.
+</p>
+<p>
+	Properties and methods starting with underscore (e.g. painter._redraw_everything()) are for internal use only.
+</p>
 <script>
 	'use strict';
 	var canvas = window.canvas = document.getElementsByTagName('canvas')[0];
