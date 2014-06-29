@@ -182,13 +182,22 @@
 		}
 		function event_to_point_in_canvas(event, canvas) {
 			var style = getComputedStyle(canvas);
+			var left_border_width = parseInt(style.getPropertyValue('border-left-width'));
+			var top_border_width = parseInt(style.getPropertyValue('border-top-width'));
 			var zoom_width_ratio = (parseInt(style.getPropertyValue('width'))) / canvas.width;
 			var zoom_height_ratio = (parseInt(style.getPropertyValue('height'))) / canvas.height;
 			var bounds = canvas.getBoundingClientRect();
-			return {
-				x: Math.floor((event.clientX - bounds.left) / zoom_width_ratio)
-				, y: Math.floor((event.clientY - bounds.top) / zoom_height_ratio)
+			var point = {
+				x: Math.floor((event.clientX - bounds.left - left_border_width) / zoom_width_ratio)
+				, y: Math.floor((event.clientY - bounds.top - top_border_width) / zoom_height_ratio)
 			};
+			if(point.x < 0 || point.x >= canvas.width) {
+				point.x = null;
+			}
+			if(point.y < 0 || point.y >= canvas.height) {
+				point.y = null;
+			}
+			return point;
 		}
 		Painter.Tools = {};
 		Painter.Tools.Pencil = named_tool_constructor (
@@ -205,6 +214,9 @@
 			event.preventDefault();
 		};
 		Painter.Tools.Pencil.prototype.draw = function(point) {
+			if(point.x === null || point.y === null) {
+				return;
+			}
 			var color = (this.mouse_button === 1)?
 				this.painter.main_color
 				: this.painter.secondary_color
