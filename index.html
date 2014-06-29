@@ -2,13 +2,39 @@
 <meta charset="utf-8">
 <script src="lodash.js"></script>
 <style>
+	.canvas-container
+	{
+		position: relative;
+		display: inline-block;
+		width: 128px;
+		height: 128px;
+		border: 1px solid grey;
+	}
 	canvas
 	{
-		border: 1px solid grey;
+		width: 100%;
+		height: 100%;
 		image-rendering: -moz-crisp-edges;
 	}
+	.grid
+	{
+		display: none;
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+		background-image:
+			linear-gradient(lightgrey 1px, transparent 1px)
+			, linear-gradient(90deg, lightgrey 1px, transparent 1px)
+			;
+		background-position: -1px -1px, -1px -1px;
+	}
 </style>
-<canvas></canvas>
+<div class="canvas-container">
+	<canvas width="128" height="128"></canvas>
+	<div class="grid"></div>
+</div>
 <p>
 	You can open up the browser console and play around with the painter API. Suggestions:
 </p>
@@ -17,6 +43,14 @@
 		<a href="#" onclick="painter.set_zoom(4); return false;">
 			painter.set_zoom(4)</a>
 		// Only looks good on Firefox at this point.
+	</li>
+	<li>
+		<a href="#" onclick="painter.set_grid(4); return false;">
+			painter.set_grid(4)</a>
+	</li>
+	<li>
+		<a href="#" onclick="painter.set_grid(0); return false;">
+			painter.set_grid(0)</a>
 	</li>
 	<li>
 		<a href="#" onclick="painter.set_palette_color(1, [127, 0, 255, 255]); return false;">
@@ -65,13 +99,33 @@
 		);
 		this._defer_redraw();
 	}
+	Painter.prototype.set_grid = function(width) {
+		var canvas = this._context.canvas;
+		var grid = canvas.parentNode.querySelector('.grid');
+		var background_sizes;
+		var grid_background_size;
+		if(width < 0) { width = 0; }
+		if(width === 0) {
+			grid.style.display = 'none';
+		}
+		else {
+			grid_background_size = [width + 'px', width + 'px'].join(' ');
+			background_sizes = [
+				grid_background_size
+				, grid_background_size
+			];
+			grid.style.setProperty('background-size', background_sizes.join(','));
+			grid.style.display = 'block';
+		}
+	};
 	Painter.prototype.set_zoom = function(zoom) {
 		var context = this._context;
 		var canvas = context.canvas;
+		var container = canvas.parentNode;
 		zoom = Math.floor(zoom);
 		if(zoom < 1) { zoom = 1; }
-		canvas.style.width = (canvas.width * zoom) + 'px';
-		canvas.style.height = (canvas.height * zoom) + 'px';
+		container.style.width = (canvas.width * zoom) + 'px';
+		container.style.height = (canvas.height * zoom) + 'px';
 		this._zoom = zoom;
 	};
 	Painter.prototype.get_palette_color = function(index) {
@@ -205,10 +259,11 @@
 		Painter.Tools.Pencil = named_tool_constructor (
 			'pencil', function(painter) {
 				var canvas = painter._context.canvas;
+				var container = canvas.parentNode;
 				this.painter = painter;
-				setup_tool_listener(this, 'on_context_menu', canvas, 'contextmenu');
-				setup_tool_listener(this, 'on_mouse_down', canvas, 'mousedown');
-				setup_tool_listener(this, 'on_mouse_move', canvas, 'mousemove');
+				setup_tool_listener(this, 'on_context_menu', container, 'contextmenu');
+				setup_tool_listener(this, 'on_mouse_down', container, 'mousedown');
+				setup_tool_listener(this, 'on_mouse_move', container, 'mousemove');
 				setup_tool_listener(this, 'on_mouse_up', document, 'mouseup');
 			}
 		);
