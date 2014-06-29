@@ -53,6 +53,7 @@
 		this._dirty_pixels = [];
 		this._dirty_pixels.all_dirty = true;
 		this.full_redraw_threshold = 2048;
+		this._zoom = 1;
 		this.main_color = 1;
 		this.secondary_color = 0;
 		this.active_tool = 'pencil';
@@ -71,6 +72,7 @@
 		if(zoom < 1) { zoom = 1; }
 		canvas.style.width = (canvas.width * zoom) + 'px';
 		canvas.style.height = (canvas.height * zoom) + 'px';
+		this._zoom = zoom;
 	};
 	Painter.prototype.get_palette_color = function(index) {
 		return this._palette[index];
