@@ -48,7 +48,7 @@
 		this._palette = palette || { '0': [0, 0, 0, 0], '1': [0, 127, 225, 255] };
 		this._pixels =
 			pixels
-			|| _(context.canvas.width * context.canvas.height).times(_.constant(0))
+			|| _(context.canvas.width * context.canvas.height).times(_.constant(0)).value()
 			;
 		this._dirty_pixels = [];
 		this._dirty_pixels.all_dirty = true;
@@ -80,21 +80,16 @@
 			throw new Error("Can't set palette color: Index overflows palette array.");
 		}
 		this._palette[index] = color;
-		[].push.apply (
-			this._dirty_pixels
-			, _.chain(this._pixels)
-				.pairs()
-				.select (
-					function(pair) {
-						return pair[1] === index;
-					}
-				)
-				.map (
-					function(pair) {
-						return pair[0];
-					}
-				)
-				.value()
+		_.each (
+			this._pixels, function(color_index, pixel_index) {
+				if(color_index === index) {
+					this._dirty_pixels.push(pixel_index);
+				}
+				if(this._dirty_pixels.length > this.full_redraw_threshold) {
+					return false;
+				}
+			}
+			, this
 		);
 		this._defer_redraw();
 	};
